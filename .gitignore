@@ -1,0 +1,14 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Data files
+data/final_dataset.csv
+data/batch_input.csv
+
+# Model files
+crop_yield_model.pkl
+
+# IDE / system files
+.vscode/
+*.DS_Store
