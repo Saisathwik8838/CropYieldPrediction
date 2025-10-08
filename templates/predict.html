@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Predict - Crop Yield Prediction{% endblock %}
+
+{% block content %}
+{% if model_status.exists %}
+    <div class="card">
+        <div class="card-header">
+            <h2>🔮 Make Predictions</h2>
+            <p>Use the trained model to predict crop yield</p>
+        </div>
+        
+        <div class="grid grid-2">
+            <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h3>📝 Single Prediction</h3>
+                <p style="margin: 1rem 0;">Enter values manually for one prediction</p>
+                <button onclick="showSingleForm()" class="btn" style="background: white; color: #667eea;">Start</button>
+            </div>
+            
+            <div class="card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                <h3>📊 Batch Prediction</h3>
+                <p style="margin: 1rem 0;">Upload CSV file for multiple predictions</p>
+                <button onclick="showBatchForm()" class="btn" style="background: white; color: #11998e;">Start</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Single Prediction Form -->
+    <div id="singleForm" class="card" style="display: none;">
+        <div class="card-header">
+            <h2>📝 Single Prediction Form</h2>
+        </div>
+        
+        <form id="predictForm" onsubmit="makePrediction(event)">
+            <div class="grid grid-2">
+                {% for feature in feature_info.all[:8] %}
+                    <div class="form-group">
+                        <label for="{{ feature }}">{{ feature|title }}</label>
+                        {% if feature in feature_info.categorical %}
+                            <input type="text" id="{{ feature }}" name="{{ feature }}" class="form-control" 
+                                   placeholder="Enter {{ feature }}" required>
+                            <small style="color: #666;">Categorical field</small>
+                        {% else %}
+                            <input type="number" step="any" id="{{ feature }}" name="{{ feature }}" 
+                                   class="form-control" placeholder="Enter {{ feature }}" required>
+                            <small style="color: #666;">Numeric field</small>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            
+            {% if feature_info.all|length > 8 %}
+                <details style="margin: 1rem 0;">
+                    <summary style="cursor: pointer; color: #667eea; font-weight: 600;">
+                        Show {{ feature_info.all|length - 8 }} more fields
+                    </summary>
+                    <div class="grid grid-2" style="margin-top: 1rem;">
+                        {% for feature in feature_info.all[8:] %}
+                            <div class="form-group">
+                                <label for="{{ feature }}">{{ feature|title }}</label>
+                                {% if feature in feature_info.categorical %}
+                                    <input type="text" id="{{ feature }}" name="{{ feature }}" class="form-control" 
+                                           placeholder="Enter {{ feature }}">
+                                {% else %}
+                                    <input type="number" step="any" id="{{ feature }}" name="{{ feature }}" 
+                                           class="form-control" placeholder="Enter {{ feature }}">
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </details>
+            {% endif %}
+            
+            <button type="submit" class="btn btn-success">🎯 Predict</button>
+            <button type="button" onclick="document.getElementById('singleForm').style.display='none'" 
+                    class="btn btn-secondary">Cancel</button>
+        </form>
+        
+        <div id="singleResult" style="margin-top: 2rem;"></div>
+    </div>
+    
+    <!-- Batch Prediction Form -->
+    <div id="batchForm" class="card" style="display: none;">
+        <div class="card-header">
+            <h2>📊 Batch Prediction</h2>
+        </div>
+        
+        <div class="alert alert-info">
+            ℹ️ <strong>CSV Format:</strong> Your file should contain the same columns as the training data. 
+            Missing columns will be filled with default values.
+        </div>
+        
+        <div class="form-group">
+            <label for="batchFile">Upload CSV File</label>
+            <input type="file" id="batchFile" accept=".csv" class="form-control">
+        </div>
+        
+        <button onclick="makeBatchPrediction()" class="btn btn-success">🎯 Predict Batch</button>
+        <button onclick="document.getElementById('batchForm').style.display='none'" 
+                class="btn btn-secondary">Cancel</button>
+        
+        <div id="batchStatus" style="margin-top: 2rem;"></div>
+        <div id="batchPreview" style="margin-top: 1rem;"></div>
+    </div>
+    
+{% else %}
+    <div class="card">
+        <div class="card-header">
+            <h2>⚠️ No Model Available</h2>
+        </div>
+        
+        <div class="alert alert-warning">
+            <strong>Please train a model first!</strong><br>
+            You need to upload data and train a model before making predictions.
+        </div>
+        
+        <a href="/upload"><button class="btn">📤 Upload Data</button></a>
+        <a href="/train"><button class="btn btn-secondary">🤖 Train Model</button></a>
+    </div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h2>📥 Download Predictions</h2>
+    </div>
+    
+    <p>Download your previous prediction results:</p>
+    
+    <div class="grid grid-2">
+        <div>
+            <h4>Single Predictions</h4>
+            <a href="/download/single_predictions.csv" download>
+                <button class="btn btn-secondary">📄 Download CSV</button>
+            </a>
+        </div>
+        
+        <div>
+            <h4>Batch Predictions</h4>
+            <a href="/download/batch_predictions.csv" download>
+                <button class="btn btn-secondary">📄 Download CSV</button>
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showSingleForm() {
+    document.getElementById('singleForm').style.display = 'block';
+    document.getElementById('batchForm').style.display = 'none';
+    document.getElementById('singleForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+function showBatchForm() {
+    document.getElementById('batchForm').style.display = 'block';
+    document.getElementById('singleForm').style.display = 'none';
+    document.getElementById('batchForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+function makePrediction(event) {
+    event.preventDefault();
+    
+    const form = document.getElementById('predictForm');
+    const formData = new FormData(form);
+    const resultDiv = document.getElementById('singleResult');
+    
+    // Convert form data to JSON
+    const inputData = {};
+    for (let [key, value] of formData.entries()) {
+        inputData[key] = value;
+    }
+    
+    resultDiv.innerHTML = '<div class="alert alert-info">⏳ Making prediction... <span class="loading"></span></div>';
+    
+    fetch('/predict_single', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(inputData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h3 style="color: #155724;">✅ Prediction Result</h3>
+                    <div style="font-size: 2rem; font-weight: bold; margin: 1rem 0; color: #667eea;">
+                        ${data.prediction.toLocaleString(undefined, {maximumFractionDigits: 2})}
+                    </div>
+                    <details style="margin-top: 1rem;">
+                        <summary style="cursor: pointer;">View input values</summary>
+                        <pre style="margin-top: 1rem; background: white; padding: 1rem; border-radius: 8px;">${JSON.stringify(data.input_data, null, 2)}</pre>
+                    </details>
+                </div>
+            `;
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-error">❌ ${data.message}</div>`;
+        }
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
+    });
+}
+
+function makeBatchPrediction() {
+    const fileInput = document.getElementById('batchFile');
+    const statusDiv = document.getElementById('batchStatus');
+    const previewDiv = document.getElementById('batchPreview');
+    
+    if (!fileInput.files[0]) {
+        statusDiv.innerHTML = '<div class="alert alert-warning">⚠️ Please select a file first</div>';
+        return;
+    }
+    
+    statusDiv.innerHTML = '<div class="alert alert-info">⏳ Processing predictions... <span class="loading"></span></div>';
+    previewDiv.innerHTML = '';
+    
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    
+    fetch('/predict_batch', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusDiv.innerHTML = `
+                <div class="alert alert-success">
+                    ✅ ${data.message}<br><br>
+                    <div class="grid grid-3">
+                        <div><strong>Count:</strong> ${data.stats.count}</div>
+                        <div><strong>Mean:</strong> ${data.stats.mean.toFixed(2)}</div>
+                        <div><strong>Min:</strong> ${data.stats.min.toFixed(2)}</div>
+                        <div><strong>Max:</strong> ${data.stats.max.toFixed(2)}</div>
+                        <div><strong>Std Dev:</strong> ${data.stats.std.toFixed(2)}</div>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <a href="/download/batch_predictions.csv" download>
+                            <button class="btn">📥 Download Results</button>
+                        </a>
+                    </div>
+                </div>
+            `;
+            
+            // Show preview
+            if (data.preview && data.preview.length > 0) {
+                let tableHTML = '<h4>Preview (first 10 rows):</h4><div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">';
+                
+                // Headers
+                tableHTML += '<thead><tr>';
+                for (let key in data.preview[0]) {

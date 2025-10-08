@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Crop Yield Prediction{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>📊 System Dashboard</h2>
+        <p>Welcome to the Crop Yield Prediction System</p>
+    </div>
+    
+    <div class="grid grid-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+            <h3>{% if dataset_info.exists %}✅{% else %}❌{% endif %}</h3>
+            <p>Dataset Status</p>
+            {% if dataset_info.exists %}
+                <small>{{ dataset_info.rows }} rows | {{ dataset_info.columns }} columns</small>
+            {% endif %}
+        </div>
+        
+        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <h3>{% if model_status.exists %}✅{% else %}❌{% endif %}</h3>
+            <p>Model Status</p>
+            {% if model_status.exists %}
+                <small>R² Score: {{ "%.4f"|format(model_status.metrics.test_r2) }}</small>
+            {% endif %}
+        </div>
+        
+        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <h3>{% if model_status.exists %}{{ model_status.n_features }}{% else %}0{% endif %}</h3>
+            <p>Features</p>
+            {% if model_status.exists %}
+                <small>Target: {{ model_status.target_column }}</small>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h2>🚀 Quick Start Guide</h2>
+        </div>
+        
+        <div style="line-height: 2;">
+            <p><strong>Step 1:</strong> Upload your crop and weather data files</p>
+            <a href="/upload"><button class="btn">📤 Upload Data</button></a>
+            
+            <p style="margin-top: 1rem;"><strong>Step 2:</strong> Train the prediction model</p>
+            <a href="/train"><button class="btn btn-secondary">🤖 Train Model</button></a>
+            
+            <p style="margin-top: 1rem;"><strong>Step 3:</strong> Make predictions</p>
+            <a href="/predict"><button class="btn btn-success">🔮 Predict Yield</button></a>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h2>📈 Model Performance</h2>
+        </div>
+        
+        {% if model_status.exists %}
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 0.75rem;"><strong>Test RMSE</strong></td>
+                    <td style="padding: 0.75rem; text-align: right;">{{ "%.2f"|format(model_status.metrics.test_rmse) }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 0.75rem;"><strong>Test MAE</strong></td>
+                    <td style="padding: 0.75rem; text-align: right;">{{ "%.2f"|format(model_status.metrics.test_mae) }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 0.75rem;"><strong>Test R² Score</strong></td>
+                    <td style="padding: 0.75rem; text-align: right;">{{ "%.4f"|format(model_status.metrics.test_r2) }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 0.75rem;"><strong>CV RMSE</strong></td>
+                    <td style="padding: 0.75rem; text-align: right;">{{ "%.2f"|format(model_status.metrics.cv_rmse_mean) }} ± {{ "%.2f"|format(model_status.metrics.cv_rmse_std) }}</td>
+                </tr>
+            </table>
+            
+            <div style="margin-top: 1rem;">
+                <a href="/analytics"><button class="btn">View Detailed Analytics</button></a>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <strong>ℹ️ No model trained yet</strong><br>
+                Please upload data and train a model to see performance metrics.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>ℹ️ System Information</h2>
+    </div>
+    
+    <div class="grid grid-2">
+        <div>
+            <h3 style="color: #667eea; margin-bottom: 1rem;">Dataset Information</h3>
+            {% if dataset_info.exists %}
+                <p>✅ <strong>Status:</strong> Ready</p>
+                <p>📊 <strong>Rows:</strong> {{ "{:,}".format(dataset_info.rows) }}</p>
+                <p>📋 <strong>Columns:</strong> {{ dataset_info.columns }}</p>
+                <p>💾 <strong>Size:</strong> {{ "%.2f"|format(dataset_info.size_mb) }} MB</p>
+            {% else %}
+                <p>❌ <strong>Status:</strong> No dataset available</p>
+                <p>Please upload and combine your data files first.</p>
+            {% endif %}
+        </div>
+        
+        <div>
+            <h3 style="color: #667eea; margin-bottom: 1rem;">Model Information</h3>
+            {% if model_status.exists %}
+                <p>✅ <strong>Status:</strong> Trained and Ready</p>
+                <p>🎯 <strong>Target:</strong> {{ model_status.target_column }}</p>
+                <p>🔢 <strong>Features:</strong> {{ model_status.n_features }}</p>
+                <p>📊 <strong>Samples:</strong> {{ "{:,}".format(model_status.training_info.n_samples) }}</p>
+            {% else %}
+                <p>❌ <strong>Status:</strong> No model trained</p>
+                <p>Please train a model to start making predictions.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

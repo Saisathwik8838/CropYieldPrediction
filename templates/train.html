@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Train Model - Crop Yield Prediction{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>🤖 Train Prediction Model</h2>
+        <p>Train a machine learning model using your uploaded data</p>
+    </div>
+    
+    {% if dataset_exists %}
+        <div class="alert alert-success">
+            ✅ Dataset is ready for training!<br>
+            <strong>Rows:</strong> {{ "{:,}".format(dataset_info.rows) }} | 
+            <strong>Columns:</strong> {{ dataset_info.columns }}
+        </div>
+        
+        <div style="margin: 2rem 0;">
+            <h3 style="color: #667eea; margin-bottom: 1rem;">Dataset Columns:</h3>
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                {% for col in dataset_info.column_names %}
+                    <span style="background: white; padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid #e0e0e0;">{{ col }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div style="margin: 2rem 0;">
+            <h3 style="color: #667eea; margin-bottom: 1rem;">Training Configuration:</h3>
+            <div class="grid grid-2">
+                <div>
+                    <p><strong>Algorithm:</strong> Random Forest Regressor</p>
+                    <p><strong>Estimators:</strong> 100 trees</p>
+                    <p><strong>Max Depth:</strong> 20</p>
+                </div>
+                <div>
+                    <p><strong>Train/Test Split:</strong> 80/20</p>
+                    <p><strong>Cross-Validation:</strong> 5-fold</p>
+                    <p><strong>Feature Engineering:</strong> Automatic</p>
+                </div>
+            </div>
+        </div>
+        
+        <button onclick="trainModel()" class="btn btn-success" id="trainBtn" style="font-size: 1.2rem; padding: 1rem 3rem;">
+            🚀 Start Training
+        </button>
+        
+        <div id="trainStatus" style="margin-top: 2rem;"></div>
+        <div id="trainOutput" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; display: none; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.85rem;"></div>
+        
+    {% else %}
+        <div class="alert alert-warning">
+            ⚠️ <strong>No dataset available!</strong><br>
+            Please upload and combine your data files first.
+        </div>
+        
+        <a href="/upload"><button class="btn">📤 Upload Data</button></a>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>📚 About the Model</h2>
+    </div>
+    
+    <div class="grid grid-2">
+        <div>
+            <h3 style="color: #667eea;">Random Forest Algorithm</h3>
+            <p>Random Forest is an ensemble learning method that creates multiple decision trees and combines their predictions for more accurate and stable results.</p>
+            
+            <h4 style="margin-top: 1rem; color: #555;">Key Features:</h4>
+            <ul style="margin-left: 1.5rem; line-height: 1.8;">
+                <li>Handles both numeric and categorical data</li>
+                <li>Robust to outliers and missing values</li>
+                <li>Provides feature importance rankings</li>
+                <li>Reduces overfitting through averaging</li>
+            </ul>
+        </div>
+        
+        <div>
+            <h3 style="color: #667eea;">Training Process</h3>
+            <ol style="margin-left: 1.5rem; line-height: 1.8;">
+                <li><strong>Data Preparation:</strong> Encode categorical variables, handle missing values</li>
+                <li><strong>Feature Engineering:</strong> Automatic feature selection and transformation</li>
+                <li><strong>Model Training:</strong> Build ensemble of decision trees</li>
+                <li><strong>Validation:</strong> Cross-validation and test set evaluation</li>
+                <li><strong>Optimization:</strong> Hyperparameter tuning for best performance</li>
+            </ol>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>📊 Expected Metrics</h2>
+    </div>
+    
+    <p>After training, you'll see these performance metrics:</p>
+    
+    <div class="grid grid-3">
+        <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+            <h4 style="color: #667eea;">RMSE</h4>
+            <p>Root Mean Square Error - measures average prediction error</p>
+            <p><em>Lower is better</em></p>
+        </div>
+        
+        <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+            <h4 style="color: #667eea;">MAE</h4>
+            <p>Mean Absolute Error - average magnitude of errors</p>
+            <p><em>Lower is better</em></p>
+        </div>
+        
+        <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+            <h4 style="color: #667eea;">R² Score</h4>
+            <p>Coefficient of determination - how well model fits data</p>
+            <p><em>Higher is better (0-1 range)</em></p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function trainModel() {
+    const statusDiv = document.getElementById('trainStatus');
+    const outputDiv = document.getElementById('trainOutput');
+    const btn = document.getElementById('trainBtn');
+    
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Training... <span class="loading"></span>';
+    statusDiv.innerHTML = '<div class="alert alert-info">⏳ Training model... This may take a few minutes depending on dataset size.</div>';
+    outputDiv.style.display = 'none';
+    
+    fetch('/train_model', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '🚀 Start Training';
+        
+        if (data.success) {
+            const metrics = data.model_status.metrics;
+            
+            statusDiv.innerHTML = `
+                <div class="alert alert-success">
+                    ✅ <strong>Model trained successfully!</strong><br><br>
+                    <div class="grid grid-3">
+                        <div>
+                            <strong>Test RMSE:</strong> ${metrics.test_rmse.toFixed(2)}
+                        </div>
+                        <div>
+                            <strong>Test MAE:</strong> ${metrics.test_mae.toFixed(2)}
+                        </div>
+                        <div>
+                            <strong>Test R² Score:</strong> ${metrics.test_r2.toFixed(4)}
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <a href="/predict"><button class="btn">Make Predictions →</button></a>
+                        <a href="/analytics"><button class="btn btn-secondary">View Analytics →</button></a>
+                    </div>
+                </div>
+            `;
+            
+            if (data.output) {
+                outputDiv.innerHTML = data.output.replace(/\n/g, '<br>');
+                outputDiv.style.display = 'block';
+            }
+        } else {
+            statusDiv.innerHTML = `<div class="alert alert-error">❌ ${data.message}</div>`;
+            
+            if (data.output) {
+                outputDiv.innerHTML = data.output.replace(/\n/g, '<br>');
+                outputDiv.style.display = 'block';
+            }
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.innerHTML = '🚀 Start Training';
+        statusDiv.innerHTML = `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
+    });
+}
+</script>
+{% endblock %}

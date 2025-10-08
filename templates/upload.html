@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Data - Crop Yield Prediction{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>📤 Upload Data Files</h2>
+        <p>Upload your crop and weather data to build the prediction model</p>
+    </div>
+    
+    <div class="grid grid-3">
+        <div class="card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+            <h3>🌾 Crop Data</h3>
+            <p style="margin: 1rem 0;">Upload individual crop CSV files (wheat.csv, rice.csv, etc.)</p>
+            <input type="file" id="cropFile" accept=".csv,.xlsx,.xls" class="form-control" style="background: white; color: #333;">
+            <button onclick="uploadFile('crop')" class="btn" style="margin-top: 1rem; background: white; color: #f5576c;">Upload</button>
+            <div id="cropStatus" style="margin-top: 1rem;"></div>
+        </div>
+        
+        <div class="card" style="background: linear-gradient(135deg, #FA8BFF 0%, #2BD2FF 90%); color: white;">
+            <h3>🌡️ Temperature Data</h3>
+            <p style="margin: 1rem 0;">Upload temperature.csv with state and year temperature data</p>
+            <input type="file" id="tempFile" accept=".csv,.xlsx,.xls" class="form-control" style="background: white; color: #333;">
+            <button onclick="uploadFile('temperature')" class="btn" style="margin-top: 1rem; background: white; color: #2BD2FF;">Upload</button>
+            <div id="tempStatus" style="margin-top: 1rem;"></div>
+        </div>
+        
+        <div class="card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+            <h3>🌧️ Rainfall Data</h3>
+            <p style="margin: 1rem 0;">Upload rainfall.csv with state and year rainfall data</p>
+            <input type="file" id="rainFile" accept=".csv,.xlsx,.xls" class="form-control" style="background: white; color: #333;">
+            <button onclick="uploadFile('rainfall')" class="btn" style="margin-top: 1rem; background: white; color: #00f2fe;">Upload</button>
+            <div id="rainStatus" style="margin-top: 1rem;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>🔗 Combine Datasets</h2>
+        <p>After uploading all files, combine them into a single dataset</p>
+    </div>
+    
+    <button onclick="combineData()" class="btn btn-success" id="combineBtn">
+        🔗 Combine All Data
+    </button>
+    
+    <div id="combineStatus" style="margin-top: 1rem;"></div>
+    <div id="combineOutput" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; display: none; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.9rem;"></div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>📋 Data Format Guide</h2>
+    </div>
+    
+    <div class="grid grid-2">
+        <div>
+            <h3 style="color: #667eea;">Crop Data Format</h3>
+            <pre style="background: #f8f9fa; padding: 1rem; border-radius: 8px; overflow-x: auto;">
+State,Year,Area,Value
+Punjab,2020,1000,3500
+Punjab,2021,1200,3800
+Haryana,2020,950,3200
+            </pre>
+            <p><strong>Required columns:</strong> State, Year, Area, Value (or Production/Yield)</p>
+        </div>
+        
+        <div>
+            <h3 style="color: #667eea;">Weather Data Format</h3>
+            <pre style="background: #f8f9fa; padding: 1rem; border-radius: 8px; overflow-x: auto;">
+State,Year,Avg_Temperature,Annual_Rainfall
+Punjab,2020,25.5,650
+Punjab,2021,26.2,680
+Haryana,2020,26.8,600
+            </pre>
+            <p><strong>Note:</strong> State and Year columns must match across all files for proper merging</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>🎲 Need Sample Data?</h2>
+    </div>
+    
+    <p>Don't have data yet? Generate sample data for testing:</p>
+    <button onclick="generateSample()" class="btn btn-secondary">
+        🎲 Generate Sample Data
+    </button>
+    <div id="sampleStatus" style="margin-top: 1rem;"></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function uploadFile(dataType) {
+    let fileInput, statusDiv;
+    
+    if (dataType === 'crop') {
+        fileInput = document.getElementById('cropFile');
+        statusDiv = document.getElementById('cropStatus');
+    } else if (dataType === 'temperature') {
+        fileInput = document.getElementById('tempFile');
+        statusDiv = document.getElementById('tempStatus');
+    } else if (dataType === 'rainfall') {
+        fileInput = document.getElementById('rainFile');
+        statusDiv = document.getElementById('rainStatus');
+    }
+    
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        statusDiv.innerHTML = '<div class="alert alert-warning">⚠️ Please select a file first</div>';
+        return;
+    }
+    
+    statusDiv.innerHTML = '<div class="alert alert-info">⏳ Uploading... <span class="loading"></span></div>';
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('data_type', dataType);
+    
+    fetch('/upload_data', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusDiv.innerHTML = `<div class="alert alert-success">✅ ${data.message}</div>`;
+            fileInput.value = '';
+        } else {
+            statusDiv.innerHTML = `<div class="alert alert-error">❌ ${data.message}</div>`;
+        }
+    })
+    .catch(error => {
+        statusDiv.innerHTML = `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
+    });
+}
+
+function combineData() {
+    const statusDiv = document.getElementById('combineStatus');
+    const outputDiv = document.getElementById('combineOutput');
+    const btn = document.getElementById('combineBtn');
+    
+    btn.disabled = true;
+    statusDiv.innerHTML = '<div class="alert alert-info">⏳ Combining datasets... <span class="loading"></span></div>';
+    outputDiv.style.display = 'none';
+    
+    fetch('/combine_data', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        
+        if (data.success) {
+            statusDiv.innerHTML = `<div class="alert alert-success">✅ ${data.message}<br>Rows: ${data.rows.toLocaleString()} | Columns: ${data.columns}</div>`;
+            
+            if (data.output) {
+                outputDiv.innerHTML = data.output.replace(/\n/g, '<br>');
+                outputDiv.style.display = 'block';
+            }
+        } else {
+            statusDiv.innerHTML = `<div class="alert alert-error">❌ ${data.message}</div>`;
+            
+            if (data.output) {
+                outputDiv.innerHTML = data.output.replace(/\n/g, '<br>');
+                outputDiv.style.display = 'block';
+            }
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        statusDiv.innerHTML = `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
+    });
+}
+
+function generateSample() {
+    const statusDiv = document.getElementById('sampleStatus');
+    statusDiv.innerHTML = '<div class="alert alert-info">⏳ Generating sample data... <span class="loading"></span></div>';
+    
+    // This would need a backend endpoint
+    statusDiv.innerHTML = '<div class="alert alert-info">ℹ️ Run "python generate_sample_data.py" in your terminal to create sample data files.</div>';
+}
+</script>
+{% endblock %}
